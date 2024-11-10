@@ -2,6 +2,7 @@ const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const unzipper = require('unzipper');
+const readline = require('readline');
 const xmlStream = require('xml-stream');
 const { promisify } = require('util');
 const AWS = require('aws-sdk');
