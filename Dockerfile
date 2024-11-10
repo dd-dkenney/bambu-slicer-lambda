@@ -89,10 +89,7 @@ COPY package*.json ./
 RUN npm install --omit=dev
 
 RUN mkdir -p /home/slicer/BambuStudio
-COPY squashfs-root/* /home/slicer/BambuStudio/
-
-# Verify files in the bin directory
-RUN ls -l /home/slicer/BambuStudio
+ADD squashfs-root/ /home/slicer/BambuStudio/
 
 RUN chmod +x /home/slicer/BambuStudio/bin/bambu-studio
 
