@@ -90,6 +90,7 @@ RUN npm install --omit=dev
 
 RUN mkdir -p /home/slicer/BambuStudio
 COPY squashfs-root/* /home/slicer/BambuStudio/
+RUN chmod +x /home/slicer/BambuStudio/bin/bambu-studio
 
 # Copy application source code
 COPY src/* ./
