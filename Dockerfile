@@ -3,6 +3,8 @@ FROM ubuntu:20.04
 
 # Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
+ENV XDG_RUNTIME_DIR=/tmp/runtime-dir
+RUN mkdir -p $XDG_RUNTIME_DIR && chmod 700 $XDG_RUNTIME_DIR
 
 # Install essential dependencies, including cmake and other libraries required by BambuStudio
 # Install essential dependencies, including libraries required by BambuStudio

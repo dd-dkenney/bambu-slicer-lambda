@@ -9,6 +9,14 @@ const s3 = new AWS.S3();
 const execAsync = promisify(exec);
 
 const TEMP_DIR = '/tmp';
+const costPerManHour = 26.00;
+const manHourFactor = 0.09375;
+const electricityCostPerKWh = 0.14;
+const printerMaintenaceCostPerHour = 0.60;
+const scrapPercentage = 0.02;
+const printerPowerConsumption = 300 / 1000;
+const materialCostMultiplier = 3.5;
+
 const filaments = [
     {
         name: 'PolyLite PLA',
@@ -18,8 +26,156 @@ const filaments = [
     }
 ];
 
-// Your existing cost calculation functions here...
-// (calculateFilamentWeight, calculateCost, etc.)
+const calculateFilamentWeight = (used_length, filament_diameter, filament_density) => {
+    const radiusCM = (filament_diameter / 10) / 2;
+    const lengthCM = used_length * 100;
+    const volumeCM3 = Math.PI * Math.pow(radiusCM, 2) * lengthCM;
+    return volumeCM3 * filament_density;
+};
+
+const calculateCost = (usedMeters, printSeconds, filament) => {
+    const calculatedMaterialUsage = calculateFilamentWeight(usedMeters, filament.filamentDiameter, filament.filamentDensity);
+    const materialCost = (calculatedMaterialUsage * (filament.costPerKg / 1000));
+    const materialPrice = materialCost * materialCostMultiplier;
+    const manHourEstimate = (printSeconds / 3600) * manHourFactor;
+    const manHourCost = manHourEstimate * costPerManHour;
+    const electricityCost = (printerPowerConsumption * ((printSeconds / 3600) * electricityCostPerKWh));
+    const maintenanceCost = (printerMaintenaceCostPerHour * (printSeconds / 3600));
+    const costPerPrintHour = electricityCost + maintenanceCost;
+
+    const totalEstimate = (materialPrice + costPerPrintHour) * (1 + scrapPercentage);
+    return {
+        materialCost,
+        materialPrice,
+        manHours: manHourEstimate,
+        manHourCost,
+        printerCost: costPerPrintHour,
+        totalPrintTimeSeconds: printSeconds,
+        maintenanceCostPerHour: costPerPrintHour,
+        electricityCost,
+        priceEstimate: totalEstimate,
+        costEstimate: ((calculatedMaterialUsage * (filament.costPerKg / 1000)) + costPerPrintHour),
+        calculatedFilamentUsage: calculatedMaterialUsage
+    };
+};
+
+// Extract functions from your reference code
+
+async function extractUsedMaterial(output3mf) {
+    let usedMeters = 0;
+
+    const usedMaterialStream = fs.createReadStream(output3mf)
+        .pipe(unzipper.ParseOne("Metadata/slice_info.config"));
+
+    const streamXml = new xmlStream(usedMaterialStream);
+
+    return new Promise((resolve, reject) => {
+        streamXml.on('endElement: filament', function (item) {
+            if (item.$['used_m']) {
+                usedMeters += parseFloat(item.$['used_m']);
+            }
+        });
+
+        streamXml.on('end', () => resolve(usedMeters));
+        streamXml.on('error', (error) => reject(error));
+        usedMaterialStream.on('error', (error) => reject(error));
+    });
+}
+
+async function extractPrintTimeFromDirectory(outputDir) {
+    let cumulativeTotalSeconds = 0;
+    let totalPlates = 0;
+    let platePrintTimes = [];
+
+    return new Promise((resolve, reject) => {
+        fs.readdir(outputDir, (err, files) => {
+            if (err) return reject(err);
+
+            const gcodeFiles = files.filter(file => file.endsWith('.gcode'));
+            let processedFiles = 0;
+
+            if (gcodeFiles.length === 0) {
+                return reject('No .gcode files found in the directory.');
+            }
+
+            totalPlates = gcodeFiles.length;
+
+            gcodeFiles.forEach(file => {
+                let currentFileSeconds = 0;
+                const filePath = path.join(outputDir, file);
+                const readInterface = readline.createInterface({
+                    input: fs.createReadStream(filePath),
+                    console: false
+                });
+
+                readInterface.on('line', line => {
+                    const timeRegex = /total estimated time: (?:(\d+)d\s*)?(?:(\d+)h\s*)?(?:(\d+)m\s*)?(?:(\d+)s)?/;
+                    const match = line.match(timeRegex);
+                    if (match) {
+                        const days = parseInt(match[1] || '0', 10);
+                        const hours = parseInt(match[2] || '0', 10);
+                        const minutes = parseInt(match[3] || '0', 10);
+                        const seconds = parseInt(match[4] || '0', 10);
+                        currentFileSeconds += (days * 86400) + (hours * 3600) + (minutes * 60) + seconds;
+                    }
+                });
+
+                readInterface.on('close', () => {
+                    cumulativeTotalSeconds += currentFileSeconds;
+                    platePrintTimes.push(currentFileSeconds);
+                    processedFiles++;
+                    if (processedFiles === gcodeFiles.length) {
+                        resolve({
+                            totalSeconds: cumulativeTotalSeconds,
+                            plateTimes: platePrintTimes,
+                            totalPlates
+                        });
+                    }
+                });
+            });
+        });
+    });
+}
+
+async function getObjectDetails(output3mf) {
+    return new Promise((resolve, reject) => {
+        const results = [];
+
+        fs.createReadStream(output3mf)
+            .pipe(unzipper.Parse())
+            .on('entry', function (entry) {
+                const fileName = entry.path;
+
+                if (fileName.startsWith("Metadata/plate_") && fileName.endsWith(".json")) {
+                    let chunks = [];
+
+                    entry.on('data', function (chunk) {
+                        chunks.push(chunk);
+                    });
+
+                    entry.on('end', function () {
+                        const rawData = Buffer.concat(chunks).toString();
+                        const data = JSON.parse(rawData);
+
+                        data.bbox_objects.forEach(object => {
+                            results.push({
+                                objectName: object.name,
+                                area: object.area,
+                                x: object.bbox[1],
+                                y: object.bbox[2],
+                                z: object.bbox[0]
+                            });
+                        });
+                    });
+
+                } else {
+                    entry.autodrain();
+                }
+            })
+            .on('error', (error) => reject(error))
+            .on('close', () => resolve(results));
+    });
+}
 
 async function processFile(fileKey, infillPercentage, supportEnabled, infillPattern) {
     const fileName = path.basename(fileKey);
@@ -30,10 +186,8 @@ async function processFile(fileKey, infillPercentage, supportEnabled, infillPatt
 
     try {
         console.log('Processing file:', fileKey);
-        // Create output directory
         fs.mkdirSync(outputDir, { recursive: true });
 
-        // Construct BambuStudio command with xvfb-run
         const command = `/home/slicer/BambuStudio/bin/bambu-studio \
             --info \
             --debug 5 \
@@ -51,8 +205,6 @@ async function processFile(fileKey, infillPercentage, supportEnabled, infillPatt
             --export-3mf "${output3mfFilename}" \
             "${localFilePath}"`;
 
-        console.log('Executing command:', command);
-
         const { stdout, stderr } = await execAsync(command, {
             maxBuffer: 1024 * 1024 * 64 // 64MB buffer
         });
@@ -60,12 +212,10 @@ async function processFile(fileKey, infillPercentage, supportEnabled, infillPatt
         console.log('Command output:', stdout);
         if (stderr) console.error('Command stderr:', stderr);
 
-        // Process results...
         const usedMeters = await extractUsedMaterial(output3mf);
         const objectDetails = await getObjectDetails(output3mf);
         const printTimes = await extractPrintTimeFromDirectory(outputDir);
 
-        // Calculate results...
         const results = {
             cost: calculateCost(usedMeters, printTimes.totalSeconds, filaments[0]),
             boundingBox: objectDetails,
@@ -73,7 +223,6 @@ async function processFile(fileKey, infillPercentage, supportEnabled, infillPatt
             plateTimes: printTimes.plateTimes
         };
 
-        // Cleanup
         fs.rmSync(outputDir, { recursive: true, force: true });
         fs.unlinkSync(localFilePath);
 
@@ -93,28 +242,21 @@ exports.handler = async (event) => {
         let supportEnabled;
         let infillPattern;
 
-        // Check if the event contains an S3 event or direct file parameters
         if (event.Records && event.Records[0].s3) {
-            // S3 Event: Extract bucket and key, then download file from S3
             const s3Event = event.Records[0].s3;
             const bucket = s3Event.bucket.name;
             const key = decodeURIComponent(s3Event.object.key.replace(/\+/g, ' '));
 
-            // Get parameters from query string if available
             const params = event.queryStringParameters || {};
             infillPercentage = params.infillPercentage || "10%";
             supportEnabled = params.supportEnabled || 1;
             infillPattern = params.infillPattern || "gyroid";
 
-            // Download the file from S3 to a local temporary directory
             const s3Object = await s3.getObject({ Bucket: bucket, Key: key }).promise();
             localFilePath = path.join(TEMP_DIR, path.basename(key));
-            console.log(localFilePath);
-            console.log("File exists:", fs.existsSync(localFilePath));
             fs.writeFileSync(localFilePath, s3Object.Body);
 
         } else if (event.localFilePath) {
-            // Direct File Path: Use provided file path (for local testing)
             localFilePath = event.localFilePath;
             infillPercentage = event.infillPercentage || "10%";
             supportEnabled = event.supportEnabled || 1;
@@ -123,7 +265,6 @@ exports.handler = async (event) => {
             throw new Error("No valid input provided. Must include either an S3 event or a local file path.");
         }
 
-        // Process the file
         const results = await processFile(localFilePath, infillPercentage, supportEnabled, infillPattern);
 
         return {
