@@ -1,0 +1,9 @@
+#!/bin/bash
+DIR=$(readlink -f "$0" | xargs dirname)
+export LD_LIBRARY_PATH="$DIR/bin"
+
+# FIXME: BambuStudio segfault workarounds
+# 1) BambuStudio will segfault on systems where locale info is not as expected (i.e. Holo-ISO arch-based distro)
+export LC_ALL=C
+
+exec "$DIR/bin/bambu-studio" "$@"
