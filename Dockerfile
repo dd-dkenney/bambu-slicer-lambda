@@ -96,6 +96,12 @@ ADD squashfs-root/ /home/slicer/BambuStudio/
 
 RUN chmod +x /home/slicer/BambuStudio/bin/bambu-studio
 
+RUN apt-get update && apt-get install -y \
+    libgstreamer1.0-0 \
+    libgstreamer-plugins-base1.0-0 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy application source code
 COPY src/* ./
 
