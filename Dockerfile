@@ -5,6 +5,7 @@ FROM ubuntu:20.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install essential dependencies, including cmake and other libraries required by BambuStudio
+# Install essential dependencies, including libraries required by BambuStudio
 RUN apt-get update && apt-get install -y \
     python3 \
     make \
@@ -45,6 +46,8 @@ RUN apt-get update && apt-get install -y \
     libxcb-shape0 \
     libfuse2 \
     wget \
+    libegl1-mesa \
+    libgles2-mesa \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
