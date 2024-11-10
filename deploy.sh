@@ -20,6 +20,14 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# 2. Ensure Git LFS files are pulled
+echo "Ensuring Git LFS files are up to date..."
+git lfs pull
+if [ $? -ne 0 ]; then
+  echo "Failed to pull Git LFS files. Exiting."
+  exit 1
+fi
+
 # 2. Retrieve temporary credentials using IMDSv2
 TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
 IAM_ROLE=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/iam/security-credentials/)
