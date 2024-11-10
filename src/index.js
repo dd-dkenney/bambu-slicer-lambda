@@ -34,7 +34,7 @@ async function processFile(fileKey, infillPercentage, supportEnabled, infillPatt
         fs.mkdirSync(outputDir, { recursive: true });
 
         // Construct BambuStudio command with xvfb-run
-        const command = `/usr/local/bin/xvfb-run-safe /home/slicer/BambuStudio.AppImage \
+        const command = `/home/slicer/BambuStudio.AppImage \
             --info \
             --debug 5 \
             --orient 1 \
