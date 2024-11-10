@@ -88,6 +88,9 @@ RUN npm install -g npm
 COPY package*.json ./
 RUN npm install --omit=dev
 
+RUN mkdir -p /home/slicer/BambuStudio
+COPY squashfs-root/* /home/slicer/BambuStudio/
+
 # Copy application source code
 COPY src/* ./
 
