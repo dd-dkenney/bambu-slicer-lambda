@@ -1,0 +1,7 @@
+# .dockerignore contents:
+node_modules
+npm-debug.log
+dist
+.git
+.env
+*.md

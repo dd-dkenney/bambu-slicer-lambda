@@ -1,0 +1,19 @@
+{
+    "Records": [
+      {
+        "s3": {
+          "bucket": {
+            "name": "lambda-slice-files"
+          },
+          "object": {
+            "key": "uploads/Oval Sleeve - A.step"
+          }
+        }
+      }
+    ],
+    "queryStringParameters": {
+      "infillPercentage": "20%",
+      "supportEnabled": "1",
+      "infillPattern": "gyroid"
+    }
+}
