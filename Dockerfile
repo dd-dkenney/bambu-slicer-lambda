@@ -59,9 +59,9 @@ RUN wget https://github.com/bambulab/BambuStudio/releases/download/v01.09.07.52/
 
 RUN chmod +x /home/slicer/BambuStudio.AppImage
 
-RUN /home/slicer/BambuStudio.AppImage --appimage-extract
-RUN mv squashfs-root/* /home/slicer/ \
-    && rm /home/slicer/BambuStudio.AppImage
+#RUN /home/slicer/BambuStudio.AppImage --appimage-extract
+#RUN mv squashfs-root/* /home/slicer/ \
+#    && rm /home/slicer/BambuStudio.AppImage
 
 # Copy print settings (assumed to be in the same directory as Dockerfile)
 COPY print_settings/* /home/slicer/print_settings/
