@@ -46,17 +46,17 @@ const calculateCost = (usedMeters, printSeconds, filament) => {
 
     const totalEstimate = (materialPrice + costPerPrintHour) * (1 + scrapPercentage);
     return {
-        materialCost,
-        materialPrice,
-        manHours: manHourEstimate,
-        manHourCost,
-        printerCost: costPerPrintHour,
+        materialCost: Math.ceil(materialCost * 100) / 100,
+        materialPrice: Math.ceil(materialPrice * 100) / 100,
+        manHours: Math.ceil(manHourEstimate * 10) / 10,
+        manHourCost: Math.ceil(manHourCost * 100) / 100,
+        printerCost: Math.ceil(costPerPrintHour * 100) / 100,
         totalPrintTimeSeconds: printSeconds,
-        maintenanceCostPerHour: costPerPrintHour,
-        electricityCost,
-        priceEstimate: totalEstimate,
-        costEstimate: ((calculatedMaterialUsage * (filament.costPerKg / 1000)) + costPerPrintHour),
-        calculatedFilamentUsage: calculatedMaterialUsage
+        maintenanceCostPerHour: Math.ceil(costPerPrintHour * 100) / 100,
+        electricityCost: Math.ceil(electricityCost * 100) / 100,
+        priceEstimate: Math.ceil(totalEstimate * 100) / 100,
+        costEstimate: Math.ceil(((calculatedMaterialUsage * (filament.costPerKg / 1000)) + costPerPrintHour) * 100) / 100,
+        calculatedFilamentUsage: Math.ceil(calculatedMaterialUsage)
     };
 };
 
@@ -162,9 +162,9 @@ async function getObjectDetails(output3mf) {
                             results.push({
                                 objectName: object.name,
                                 area: object.area,
-                                x: object.bbox[1],
-                                y: object.bbox[2],
-                                z: object.bbox[0]
+                                x: Math.ceil(object.bbox[1]),
+                                y: Math.ceil(object.bbox[2]),
+                                z: Math.ceil(object.bbox[0])
                             });
                         });
                     });
