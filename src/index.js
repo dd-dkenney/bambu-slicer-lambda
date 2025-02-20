@@ -189,7 +189,7 @@ async function processFile(fileKey, infillPercentage, supportEnabled, infillPatt
         console.log('Processing file:', fileKey);
         fs.mkdirSync(outputDir, { recursive: true });
 
-        const command = `/home/slicer/BambuStudio/bin/bambu-studio \
+        const command = `LD_LIBRARY_PATH=/home/slicer/BambuStudio/bin /home/slicer/BambuStudio/bin/bambu-studio \
             --info \
             --debug 5 \
             --orient 1 \
