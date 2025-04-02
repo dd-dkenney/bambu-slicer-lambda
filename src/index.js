@@ -27,6 +27,16 @@ const filaments = [
     }
 ];
 
+// Create a dynamic filament config based on settings
+const createFilamentConfig = (settings) => {
+    return {
+        name: 'Custom Filament',
+        costPerKg: 20.00, // Default cost
+        filamentDensity: settings.filamentDensity || 1.24, // Use provided density or default
+        filamentDiameter: 1.75 // Default diameter
+    };
+};
+
 const calculateFilamentWeight = (used_length, filament_diameter, filament_density) => {
     const radiusCM = (filament_diameter / 10) / 2;
     const lengthCM = used_length * 100;
@@ -182,7 +192,7 @@ async function getObjectDetails(output3mf) {
     });
 }
 
-async function processFile(fileKey, infillPercentage, supportEnabled, infillPattern) {
+async function processFile(fileKey, settings) {
     const fileName = path.basename(fileKey);
     const localFilePath = path.join('/tmp', fileName);
     const outputDir = path.join('/tmp', `output_${Math.random().toString(36).substring(7)}`);
@@ -193,7 +203,28 @@ async function processFile(fileKey, infillPercentage, supportEnabled, infillPatt
         console.log('Processing file:', fileKey);
         fs.mkdirSync(outputDir, { recursive: true });
 
-        const command = `LD_LIBRARY_PATH=/home/slicer/BambuStudio/bin /home/slicer/BambuStudio/bin/bambu-studio \
+        // Extract settings with defaults
+        const {
+            infillPercentage = "10%",
+            supportEnabled = 1,
+            infillPattern = "gyroid",
+            layerHeight,
+            nozzleDiameter,
+            wallLoops,
+            topShells, 
+            bottomShells,
+            outerWallSpeed,
+            innerWallSpeed,
+            infillSpeed,
+            travelSpeed,
+            defaultAcceleration,
+            filamentDensity,
+            filamentFlowRatio,
+            filamentMaxVolumetricSpeed
+        } = settings;
+
+        // Build command with base parameters
+        let command = `LD_LIBRARY_PATH=/home/slicer/BambuStudio/bin /home/slicer/BambuStudio/bin/bambu-studio \
             --info \
             --debug 5 \
             --orient 1 \
@@ -201,8 +232,25 @@ async function processFile(fileKey, infillPercentage, supportEnabled, infillPatt
             --allow-rotations \
             --enable-support="${supportEnabled}" \
             --sparse-infill-density="${infillPercentage}" \
-            --sparse-infill-pattern="${infillPattern}" \
-            --slice 0 \
+            --sparse-infill-pattern="${infillPattern}"`;
+            
+        // Add optional parameters if provided
+        if (layerHeight) command += ` \\\n            --layer-height="${layerHeight}"`;
+        if (nozzleDiameter) command += ` \\\n            --nozzle-diameter="${nozzleDiameter}"`;
+        if (wallLoops) command += ` \\\n            --wall-loops="${wallLoops}"`;
+        if (topShells) command += ` \\\n            --top-shell-layers="${topShells}"`;
+        if (bottomShells) command += ` \\\n            --bottom-shell-layers="${bottomShells}"`;
+        if (outerWallSpeed) command += ` \\\n            --outer-wall-speed="${outerWallSpeed}"`;
+        if (innerWallSpeed) command += ` \\\n            --inner-wall-speed="${innerWallSpeed}"`;
+        if (infillSpeed) command += ` \\\n            --infill-speed="${infillSpeed}"`;
+        if (travelSpeed) command += ` \\\n            --travel-speed="${travelSpeed}"`;
+        if (defaultAcceleration) command += ` \\\n            --default-acceleration="${defaultAcceleration}"`;
+        if (filamentDensity) command += ` \\\n            --filament-density="${filamentDensity}"`;
+        if (filamentFlowRatio) command += ` \\\n            --filament-flow-ratio="${filamentFlowRatio}"`;
+        if (filamentMaxVolumetricSpeed) command += ` \\\n            --filament-max-volumetric-speed="${filamentMaxVolumetricSpeed}"`;
+            
+        // Add the rest of the command
+        command += ` \\\n            --slice 0 \
             --export-slicedata "${outputDir}" \
             --outputdir "${outputDir}" \
             --load-settings "/home/slicer/print_settings/machine.json;/home/slicer/print_settings/process.json" \
@@ -221,8 +269,11 @@ async function processFile(fileKey, infillPercentage, supportEnabled, infillPatt
         const objectDetails = await getObjectDetails(output3mf);
         const printTimes = await extractPrintTimeFromDirectory(outputDir);
 
+        // Create a filament configuration based on provided settings
+        const filamentConfig = createFilamentConfig(settings);
+
         const results = {
-            cost: calculateCost(usedMeters, printTimes.totalSeconds, filaments[0]),
+            cost: calculateCost(usedMeters, printTimes.totalSeconds, filamentConfig),
             boundingBox: objectDetails,
             totalPlates: printTimes.totalPlates,
             plateTimes: printTimes.plateTimes
@@ -249,19 +300,25 @@ exports.handler = async (event) => {
     console.log('Received event:', JSON.stringify(event, null, 2));
     try {
         let localFilePath;
-        let infillPercentage;
-        let supportEnabled;
-        let infillPattern;
+        let settings = {};
 
         if (event.Records && event.Records[0].s3) {
             const s3Event = event.Records[0].s3;
             const bucket = s3Event.bucket.name;
             const key = decodeURIComponent(s3Event.object.key.replace(/\+/g, ' '));
 
-            const params = event.queryStringParameters || {};
-            infillPercentage = params.infillPercentage || "10%";
-            supportEnabled = params.supportEnabled || 1;
-            infillPattern = params.infillPattern || "gyroid";
+            // Handle settings from event
+            if (event.settings) {
+                settings = event.settings;
+            } else {
+                // Fallback to query string parameters for backward compatibility
+                const params = event.queryStringParameters || {};
+                settings = {
+                    infillPercentage: params.infillPercentage || "10%",
+                    supportEnabled: params.supportEnabled || 1,
+                    infillPattern: params.infillPattern || "gyroid"
+                };
+            }
 
             const s3Object = await s3.getObject({ Bucket: bucket, Key: key }).promise();
             localFilePath = path.join(TEMP_DIR, path.basename(key));
@@ -269,14 +326,36 @@ exports.handler = async (event) => {
 
         } else if (event.localFilePath) {
             localFilePath = event.localFilePath;
-            infillPercentage = event.infillPercentage || "10%";
-            supportEnabled = event.supportEnabled || 1;
-            infillPattern = event.infillPattern || "gyroid";
+            
+            // Extract all the settings from the event
+            settings = {
+                infillPercentage: event.infillPercentage,
+                supportEnabled: event.supportEnabled,
+                infillPattern: event.infillPattern,
+                layerHeight: event.layerHeight,
+                nozzleDiameter: event.nozzleDiameter,
+                wallLoops: event.wallLoops,
+                topShells: event.topShells,
+                bottomShells: event.bottomShells,
+                outerWallSpeed: event.outerWallSpeed,
+                innerWallSpeed: event.innerWallSpeed,
+                infillSpeed: event.infillSpeed,
+                travelSpeed: event.travelSpeed,
+                defaultAcceleration: event.defaultAcceleration,
+                filamentDensity: event.filamentDensity,
+                filamentFlowRatio: event.filamentFlowRatio,
+                filamentMaxVolumetricSpeed: event.filamentMaxVolumetricSpeed
+            };
+            
+            // Remove undefined values
+            Object.keys(settings).forEach(key => 
+                settings[key] === undefined && delete settings[key]
+            );
         } else {
             throw new Error("No valid input provided. Must include either an S3 event or a local file path.");
         }
 
-        const results = await processFile(localFilePath, infillPercentage, supportEnabled, infillPattern);
+        const results = await processFile(localFilePath, settings);
 
         console.log('Results:', results);
 
