@@ -90,7 +90,7 @@ VERSION=$(get_and_increment_version)
 # 5. Build and Push Docker Image to ECR with version tag
 echo "Building and pushing the Docker image with version $VERSION..."
 # Build and push with both version tag and latest tag
-docker buildx build --platform linux/amd64 -f $DOCKERFILE_PATH -t $REPO_URI:$VERSION -t $REPO_URI:latest $BUILD_CONTEXT --push
+docker buildx build --platform linux/amd64 -f $DOCKERFILE_PATH -t "$REPO_URI:$VERSION" -t "$REPO_URI:latest" $BUILD_CONTEXT --push
 if [ $? -ne 0 ]; then
   echo "Failed to build and push Docker image. Exiting."
   exit 1
