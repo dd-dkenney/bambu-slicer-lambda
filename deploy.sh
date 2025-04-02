@@ -4,13 +4,35 @@
 REPO_URI="828034922116.dkr.ecr.us-east-1.amazonaws.com/bambu-slicer-lambda"
 LAMBDA_FUNCTION_NAME="bambu-slicer"
 REGION="us-east-1"
-IMAGE_TAG="latest" # Tag for the Docker image
 DOCKERFILE_PATH="./Dockerfile" # Path to Dockerfile relative to the script's location
 BUILD_CONTEXT="." # Build context is the root of the Git repo now
 
 # Navigate to the directory containing the script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR" || exit 1
+
+# Function to get the latest Lambda version and increment it
+get_and_increment_version() {
+  echo "Getting latest Lambda version..."
+  # Get the latest version number of the Lambda function
+  VERSIONS=$(aws lambda list-versions-by-function --function-name $LAMBDA_FUNCTION_NAME --region $REGION --query "Versions[*].Version" --output text)
+  
+  # Find the highest numeric version
+  LATEST_VERSION=0
+  for VERSION in $VERSIONS; do
+    # Skip $LATEST which is a special version
+    if [ "$VERSION" != "\$LATEST" ] && [ "$VERSION" -gt "$LATEST_VERSION" ]; then
+      LATEST_VERSION=$VERSION
+    fi
+  done
+  
+  # Increment version
+  NEW_VERSION=$((LATEST_VERSION + 1))
+  echo "Current Lambda version: $LATEST_VERSION, incrementing to version: $NEW_VERSION"
+  
+  # Return the new version
+  echo $NEW_VERSION
+}
 
 # 1. Ensure the repository is up to date
 echo "Updating project repository..."
@@ -46,21 +68,25 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# 5. Build and Push Docker Image to ECR
-echo "Building and pushing the Docker image..."
-docker buildx build --platform linux/amd64 -f $DOCKERFILE_PATH --push -t $REPO_URI:$IMAGE_TAG $BUILD_CONTEXT
+# Get the new version number
+VERSION=$(get_and_increment_version)
+
+# 5. Build and Push Docker Image to ECR with version tag
+echo "Building and pushing the Docker image with version $VERSION..."
+# Build and push with both version tag and latest tag
+docker buildx build --platform linux/amd64 -f $DOCKERFILE_PATH --push -t $REPO_URI:$VERSION -t $REPO_URI:latest $BUILD_CONTEXT
 if [ $? -ne 0 ]; then
   echo "Failed to build and push Docker image. Exiting."
   exit 1
 fi
 
 # 6. Update Lambda Function to Use New Image
-echo "Updating Lambda function with new image..."
+echo "Updating Lambda function with new image version $VERSION..."
 aws lambda update-function-code --function-name $LAMBDA_FUNCTION_NAME \
-  --image-uri $REPO_URI:$IMAGE_TAG --region $REGION
+  --image-uri $REPO_URI:$VERSION --region $REGION --publish
 if [ $? -ne 0 ]; then
   echo "Failed to update Lambda function. Exiting."
   exit 1
 fi
 
-echo "Deployment complete."
+echo "Deployment complete. Lambda function and Docker image updated to version $VERSION."
