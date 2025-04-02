@@ -70,6 +70,8 @@ async function extractUsedMaterial(output3mf) {
 
     const streamXml = new xmlStream(usedMaterialStream);
 
+    console.log('Extracting used material...');
+
     return new Promise((resolve, reject) => {
         streamXml.on('endElement: filament', function (item) {
             if (item.$['used_m']) {
@@ -87,6 +89,8 @@ async function extractPrintTimeFromDirectory(outputDir) {
     let cumulativeTotalSeconds = 0;
     let totalPlates = 0;
     let platePrintTimes = [];
+
+    console.log('Extracting print time from directory:', outputDir);
 
     return new Promise((resolve, reject) => {
         fs.readdir(outputDir, (err, files) => {
@@ -224,7 +228,13 @@ async function processFile(fileKey, infillPercentage, supportEnabled, infillPatt
             plateTimes: printTimes.plateTimes
         };
 
+        console.log(results);
+
+        console.log('Cleaning up...');
+        console.log('Removing output directory:', outputDir);
         fs.rmSync(outputDir, { recursive: true, force: true });
+
+        console.log('Removing local file:', localFilePath);
         fs.unlinkSync(localFilePath);
 
         return results;
@@ -268,8 +278,11 @@ exports.handler = async (event) => {
 
         const results = await processFile(localFilePath, infillPercentage, supportEnabled, infillPattern);
 
+        console.log('Results:', results);
+
         return {
             statusCode: 200,
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(results)
         };
 
@@ -277,7 +290,8 @@ exports.handler = async (event) => {
         console.error('Lambda execution error:', error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: error.message })
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ error: error.message || "Internal Server Error" }),
         };
     }
 };
