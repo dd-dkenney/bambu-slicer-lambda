@@ -242,7 +242,7 @@ async function processFile(fileKey, settings) {
         if (bottomShells) command += ` \\\n            --bottom-shell-layers="${bottomShells}"`;
         if (outerWallSpeed) command += ` \\\n            --outer-wall-speed="${outerWallSpeed}"`;
         if (innerWallSpeed) command += ` \\\n            --inner-wall-speed="${innerWallSpeed}"`;
-        if (infillSpeed) command += ` \\\n            --infill-speed="${infillSpeed}"`;
+        if (infillSpeed) command += ` \\\n            --sparse-infill-speed="${infillSpeed}"`;
         if (travelSpeed) command += ` \\\n            --travel-speed="${travelSpeed}"`;
         if (defaultAcceleration) command += ` \\\n            --default-acceleration="${defaultAcceleration}"`;
         if (filamentDensity) command += ` \\\n            --filament-density="${filamentDensity}"`;
