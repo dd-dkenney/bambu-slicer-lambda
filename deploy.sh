@@ -85,7 +85,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Get the new version number
-VERSION=$(get_and_increment_version)
+VERSION=$(get_and_increment_version | tail -n 1)
 
 # 5. Build and Push Docker Image to ECR with version tag
 echo "Building and pushing the Docker image with version $VERSION..."
