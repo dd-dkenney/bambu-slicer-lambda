@@ -50,15 +50,31 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# 2. Retrieve temporary credentials using IMDSv2
-TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-IAM_ROLE=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/iam/security-credentials/)
-CREDENTIALS=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/iam/security-credentials/$IAM_ROLE)
+# Check if AWS CLI is already configured
+echo "Checking AWS CLI configuration..."
+if ! aws sts get-caller-identity &>/dev/null; then
+  echo "AWS CLI is not configured with valid credentials."
+  
+  # Check if running on EC2 with an IAM role
+  if curl -s -m 1 http://169.254.169.254/latest/meta-data/ &>/dev/null; then
+    echo "Running on EC2, using instance IAM role..."
+    # No need to fetch credentials explicitly, AWS CLI will use the instance profile
+  else
+    echo "Not running on EC2. Ensure AWS credentials are configured via:"
+    echo "  - AWS CLI configuration (~/.aws/credentials)"
+    echo "  - Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)"
+    echo "  - AWS SSO or other auth method"
+    exit 1
+  fi
+fi
 
-# 3. Export credentials for AWS CLI commands
-export AWS_ACCESS_KEY_ID=$(echo $CREDENTIALS | jq -r '.AccessKeyId')
-export AWS_SECRET_ACCESS_KEY=$(echo $CREDENTIALS | jq -r '.SecretAccessKey')
-export AWS_SESSION_TOKEN=$(echo $CREDENTIALS | jq -r '.Token')
+# Verify permissions
+echo "Verifying AWS permissions..."
+aws lambda get-function --function-name $LAMBDA_FUNCTION_NAME --region $REGION &>/dev/null
+if [ $? -ne 0 ]; then
+  echo "Warning: Unable to access Lambda function. Check if your role has lambda:GetFunction permission."
+  echo "You may need to attach policies like AWSLambdaFullAccess and AmazonECR-FullAccess to your IAM role."
+fi
 
 # 4. Log in to ECR
 echo "Logging into Amazon ECR..."
