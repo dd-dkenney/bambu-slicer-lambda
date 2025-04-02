@@ -271,12 +271,21 @@ async function processFile(fileKey, settings) {
 
         // Create a filament configuration based on provided settings
         const filamentConfig = createFilamentConfig(settings);
-
+        
+        // Calculate all the costs and details (keep for potential future use)
+        const costDetails = calculateCost(usedMeters, printTimes.totalSeconds, filamentConfig);
+        
+        // Simplified response with only the requested fields
         const results = {
-            cost: calculateCost(usedMeters, printTimes.totalSeconds, filamentConfig),
-            boundingBox: objectDetails,
-            totalPlates: printTimes.totalPlates,
-            plateTimes: printTimes.plateTimes
+            // Extract just the required bounding box info
+            boundingBox: objectDetails.map(obj => ({
+                area: obj.area,
+                x: obj.x,
+                y: obj.y,
+                z: obj.z
+            })),
+            print_time: printTimes.totalSeconds,
+            filament_usage: costDetails.calculatedFilamentUsage
         };
 
         console.log(results);
