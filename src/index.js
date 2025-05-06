@@ -220,7 +220,8 @@ async function processFile(fileKey, settings) {
             defaultAcceleration,
             filamentDensity,
             filamentFlowRatio,
-            filamentMaxVolumetricSpeed
+            filamentMaxVolumetricSpeed,
+            supportType = "normal(auto)"
         } = settings;
 
         // Build command with base parameters
@@ -230,11 +231,12 @@ async function processFile(fileKey, settings) {
             --orient 1 \
             --arrange 1 \
             --allow-rotations \
-            --enable-support="${supportEnabled}" \
             --sparse-infill-density="${infillPercentage}" \
             --sparse-infill-pattern="${infillPattern}"`;
             
         // Add optional parameters if provided
+        if (supportEnabled) command += ` \\\n            --enable-support="${supportEnabled}"`;
+        if (supportEnabled && supportType) command += ` \\\n            --support-type="${supportType}"`;
         if (layerHeight) command += ` \\\n            --layer-height="${layerHeight}"`;
         if (nozzleDiameter) command += ` \\\n            --nozzle-diameter="${nozzleDiameter}"`;
         if (wallLoops) command += ` \\\n            --wall-loops="${wallLoops}"`;
