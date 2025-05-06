@@ -8,6 +8,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Test with event: `curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d @event.json`
 - Deploy to AWS: `./deploy.sh`
 
+## Supported File Formats
+- STL (.stl): Standard Triangle Language, common 3D printing format
+- 3MF (.3mf): 3D Manufacturing Format, modern replacement for STL
+- OBJ (.obj): Wavefront 3D Object File, widely used in 3D graphics and printing
+
 ## Code Style Guidelines
 - Use CommonJS module syntax (require/exports)
 - Functions should be async/await where possible for asynchronous operations

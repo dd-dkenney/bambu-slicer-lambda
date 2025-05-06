@@ -1,6 +1,19 @@
-# Update slicer
+# Changelog
 
-I've got new parameters to implement in the CLI call for the bambu slicer that will be submitted via the following PHP Code:
+## [Unreleased]
+### Added
+- Support for 3MF files as input format
+- Support for OBJ files as input format
+- File format validation for STL, 3MF, and OBJ files
+- Improved error handling for unsupported file types
+- Enhanced logging for file processing 
+
+### Removed
+- STEP file support (no longer supported by BambuStudio CLI)
+
+## Previous Changes
+### Parameter Updates
+The following PHP code was implemented to invoke the Lambda function with additional parameters:
 
 ```php
 protected function invokeLambda(string $s3Key, array $settings): array
@@ -73,5 +86,3 @@ protected function invokeLambda(string $s3Key, array $settings): array
             ]
         ];
         ```
-
-Can you please implement the necessary changes for this please.

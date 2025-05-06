@@ -83,6 +83,8 @@ RUN apt-get update && \
     automake \
     libtool \
     build-essential \
+    python3-pip \
+    freecad \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

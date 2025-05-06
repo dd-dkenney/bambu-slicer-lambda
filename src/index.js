@@ -196,6 +196,7 @@ async function processFile(fileKey, settings) {
     const fileName = path.basename(fileKey);
     const localFilePath = path.join('/tmp', fileName);
     const outputDir = path.join('/tmp', `output_${Math.random().toString(36).substring(7)}`);
+    // Use a different output filename than the input to avoid conflicts
     const output3mfFilename = 'slice.3mf';
     const output3mf = path.join(outputDir, output3mfFilename);
 
@@ -317,6 +318,15 @@ exports.handler = async (event) => {
             const s3Event = event.Records[0].s3;
             const bucket = s3Event.bucket.name;
             const key = decodeURIComponent(s3Event.object.key.replace(/\+/g, ' '));
+            
+            // Log the file extension for debugging
+            const fileExtension = path.extname(key).toLowerCase();
+            console.log(`Processing file with extension: ${fileExtension}`);
+            
+            // Verify supported file formats (STL, 3MF, OBJ)
+            if (!['.stl', '.3mf', '.obj'].includes(fileExtension)) {
+                throw new Error(`Unsupported file format: ${fileExtension}. Supported formats are: STL, 3MF, OBJ`);
+            }
 
             // Handle settings from event
             if (event.settings) {
@@ -337,6 +347,14 @@ exports.handler = async (event) => {
 
         } else if (event.localFilePath) {
             localFilePath = event.localFilePath;
+            
+            // Verify supported file formats for local file path
+            const fileExtension = path.extname(localFilePath).toLowerCase();
+            console.log(`Processing local file with extension: ${fileExtension}`);
+            
+            if (!['.stl', '.3mf', '.obj'].includes(fileExtension)) {
+                throw new Error(`Unsupported file format: ${fileExtension}. Supported formats are: STL, 3MF, OBJ`);
+            }
             
             // Extract all the settings from the event
             settings = {
